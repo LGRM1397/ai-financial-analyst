@@ -82,7 +82,7 @@ with st.expander("Analyze a Company", expanded=True):
             except Exception as e:
                 st.warning(f"Could not fetch data for that ticker. Error: {e}")
 
-# Analysis Results Block (conditionally shown)
+ #Check if an analysis has been triggered and a ticker is selected
 if st.session_state.run_analysis and st.session_state.selected_ticker:
     with st.expander("Analysis Results", expanded=True):
         final_ticker = st.session_state.selected_ticker
@@ -100,16 +100,19 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
             clean_name = clean_company_name(data.get("shortName", ""))
             st.subheader(f"Company: {clean_name} ({final_ticker})")
 
+            # Button to close the analysis
             if st.button("Close Analysis"):
                 st.session_state.run_analysis = False
                 st.session_state.selected_ticker = None
                 st.rerun()
 
-            # Watchlist and core metrics
+            # Watchlist button
             add_to_watchlist_button(final_ticker)
+
+            # Display financial metrics
             render_grouped_metrics(data, closing_price)
 
-            # PEG Ratio
+            # PEG ratio insight
             peg = get_peg_ratio(final_ticker)
             if peg is not None:
                 st.write(f"PEG Ratio: {peg}")
@@ -122,7 +125,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
             else:
                 st.write("PEG ratio not available.")
 
-            # Sector Benchmark Comparison
+            # Benchmark comparison
             st.subheader("Benchmark Comparison (Sector ETF)")
             sector = data.get("sector", "Unknown")
             benchmark = get_benchmark_metrics(sector)
@@ -134,20 +137,21 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
             else:
                 st.write("Benchmark data not available.")
 
-            # Analyst Target Price Range
+            # Analyst price target comparison
             valuation_label = None
             targets = get_analyst_price_targets(final_ticker)
+
             if targets and closing_price:
                 st.subheader("Analyst Target Price vs. Current Price")
                 try:
                     low = float(targets.get("targetLow", 0))
                     mean = float(targets.get("targetMean", 0))
                     high = float(targets.get("targetHigh", 0))
+
                     st.write(f"Target Range: ${low:.2f} - ${high:.2f}")
                     st.write(f"Average Target Price: ${mean:.2f}")
                     st.write(f"Current Price: {format_number(closing_price, style='usd')}")
 
-                    # Valuation label assignment
                     if closing_price < low:
                         st.success("Valuation: Undervalued")
                         valuation_label = "undervalued"
@@ -169,14 +173,19 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
             else:
                 st.write("Analyst price targets not available.")
 
-            # Display Chart
+            # Show price chart
             display_stock_price_chart(final_ticker, clean_name)
 
+            # Prepare chart image for export
             chart_buffer = BytesIO()
             time_range = st.session_state.time_range
             range_map = {
-                "1M": "1mo", "6M": "6mo", "1Y": "1y",
-                "5Y": "5y", "YTD": "ytd", "MAX": "max"
+                "1M": "1mo",
+                "6M": "6mo",
+                "1Y": "1y",
+                "5Y": "5y",
+                "YTD": "ytd",
+                "MAX": "max"
             }
             selected_period = range_map.get(time_range, "6mo")
             chart_data = yf.Ticker(final_ticker).history(period=selected_period)
@@ -197,7 +206,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
                 chart_buffer = None
                 st.warning("Chart could not be generated for this ticker.")
 
-            # AI Summary
+            # AI-generated investment summary
             st.subheader("AI-Powered Investment Summary")
             news_list = get_company_news_finnhub(final_ticker)
             summaries = []
@@ -211,7 +220,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
             ai_summary = generate_summary(data, valuation_label=valuation_label, news_summaries=summaries)
             st.write(clean_text(ai_summary))
 
-            # Export to DOCX
+            # Export report to Word
             st.subheader("Export Report")
             doc = generate_word_report(
                 data=data,
@@ -224,6 +233,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
                 ai_summary=ai_summary,
                 chart_image=chart_buffer
             )
+
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
@@ -235,7 +245,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
 
-            # Display News Articles
+            # Display latest news
             st.subheader("Recent News")
             if isinstance(news_list, list):
                 for item in news_list:
