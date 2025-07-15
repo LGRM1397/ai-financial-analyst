@@ -28,25 +28,28 @@ style_ui()
 init_watchlist()
 display_watchlist_sidebar()
 
+# Company Search and Analysis Block
 with st.expander("Analyze a Company", expanded=True):
     st.write("Enter a company name or ticker (e.g., Apple or AAPL).")
     st.info("For international stocks, use the full ticker (e.g., CIB for Bancolombia).")
 
-    tickers_df = pd.read_csv("tickers.csv")
-
+    tickers_df = pd.read_csv("tickers.csv")  # Load ticker dataset
     search_query = st.text_input("Search for a company or ticker:")
 
+    # Session state defaults
     if "selected_ticker" not in st.session_state:
         st.session_state.selected_ticker = None
     if "run_analysis" not in st.session_state:
         st.session_state.run_analysis = False
 
+    # Match user input with known tickers
     def match_ticker(query):
         query = query.strip().lower()
         tickers_df["Security_clean"] = tickers_df["Security"].str.lower()
         matches = tickers_df[tickers_df["Security_clean"].str.contains(query)]
         return matches[["Security", "Symbol"]].values.tolist()
 
+    # Show suggestions
     if search_query:
         suggestions = match_ticker(search_query)
         if suggestions:
@@ -57,6 +60,7 @@ with st.expander("Analyze a Company", expanded=True):
                     st.session_state.run_analysis = True
                     st.rerun()
 
+    # Direct analysis by input
     if st.button("Analyze", key="analyze_button"):
         if search_query:
             possible_ticker = search_query.strip().upper()
@@ -77,8 +81,10 @@ with st.expander("Analyze a Company", expanded=True):
                         st.warning("Could not find a valid ticker or match for that name.")
             except Exception as e:
                 st.warning(f"Could not fetch data for that ticker. Error: {e}")
-with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
-    if st.session_state.run_analysis and st.session_state.selected_ticker:
+
+# Analysis Results Block (conditionally shown)
+if st.session_state.run_analysis and st.session_state.selected_ticker:
+    with st.expander("Analysis Results", expanded=True):
         final_ticker = st.session_state.selected_ticker
 
         with st.spinner("Fetching data..."):
@@ -99,9 +105,11 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
                 st.session_state.selected_ticker = None
                 st.rerun()
 
+            # Watchlist and core metrics
             add_to_watchlist_button(final_ticker)
             render_grouped_metrics(data, closing_price)
 
+            # PEG Ratio
             peg = get_peg_ratio(final_ticker)
             if peg is not None:
                 st.write(f"PEG Ratio: {peg}")
@@ -114,6 +122,7 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
             else:
                 st.write("PEG ratio not available.")
 
+            # Sector Benchmark Comparison
             st.subheader("Benchmark Comparison (Sector ETF)")
             sector = data.get("sector", "Unknown")
             benchmark = get_benchmark_metrics(sector)
@@ -125,20 +134,20 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
             else:
                 st.write("Benchmark data not available.")
 
+            # Analyst Target Price Range
             valuation_label = None
             targets = get_analyst_price_targets(final_ticker)
-
             if targets and closing_price:
                 st.subheader("Analyst Target Price vs. Current Price")
                 try:
                     low = float(targets.get("targetLow", 0))
                     mean = float(targets.get("targetMean", 0))
                     high = float(targets.get("targetHigh", 0))
-
                     st.write(f"Target Range: ${low:.2f} - ${high:.2f}")
                     st.write(f"Average Target Price: ${mean:.2f}")
                     st.write(f"Current Price: {format_number(closing_price, style='usd')}")
 
+                    # Valuation label assignment
                     if closing_price < low:
                         st.success("Valuation: Undervalued")
                         valuation_label = "undervalued"
@@ -160,17 +169,14 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
             else:
                 st.write("Analyst price targets not available.")
 
+            # Display Chart
             display_stock_price_chart(final_ticker, clean_name)
 
             chart_buffer = BytesIO()
             time_range = st.session_state.time_range
             range_map = {
-                "1M": "1mo",
-                "6M": "6mo",
-                "1Y": "1y",
-                "5Y": "5y",
-                "YTD": "ytd",
-                "MAX": "max"
+                "1M": "1mo", "6M": "6mo", "1Y": "1y",
+                "5Y": "5y", "YTD": "ytd", "MAX": "max"
             }
             selected_period = range_map.get(time_range, "6mo")
             chart_data = yf.Ticker(final_ticker).history(period=selected_period)
@@ -191,6 +197,7 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
                 chart_buffer = None
                 st.warning("Chart could not be generated for this ticker.")
 
+            # AI Summary
             st.subheader("AI-Powered Investment Summary")
             news_list = get_company_news_finnhub(final_ticker)
             summaries = []
@@ -204,6 +211,7 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
             ai_summary = generate_summary(data, valuation_label=valuation_label, news_summaries=summaries)
             st.write(clean_text(ai_summary))
 
+            # Export to DOCX
             st.subheader("Export Report")
             doc = generate_word_report(
                 data=data,
@@ -216,7 +224,6 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
                 ai_summary=ai_summary,
                 chart_image=chart_buffer
             )
-
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
@@ -228,6 +235,7 @@ with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
 
+            # Display News Articles
             st.subheader("Recent News")
             if isinstance(news_list, list):
                 for item in news_list:
