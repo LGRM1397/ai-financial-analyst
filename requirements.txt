@@ -1,0 +1,7 @@
+streamlit
+yfinance
+openai
+finnhub-python
+matplotlib
+pandas
+python-docx
