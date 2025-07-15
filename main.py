@@ -77,7 +77,7 @@ with st.expander("Analyze a Company", expanded=True):
                         st.warning("Could not find a valid ticker or match for that name.")
             except Exception as e:
                 st.warning(f"Could not fetch data for that ticker. Error: {e}")
-with st.expander("Analysis Results", expanded = st.session_state.run.analysis):
+with st.expander("Analysis Results", expanded = st.session_state.run_analysis):
     if st.session_state.run_analysis and st.session_state.selected_ticker:
         final_ticker = st.session_state.selected_ticker
 
