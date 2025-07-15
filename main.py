@@ -8,7 +8,7 @@ import yfinance as yf
 from io import BytesIO
 import matplotlib.pyplot as plt
 
-# Custom modules (your own Python files)
+# Custom modules 
 from finance_utils import get_peg_ratio, get_stock_info, get_analyst_price_targets
 from gpt_summary import generate_summary
 from utils import format_number, clean_company_name, style_ui, clean_text, render_grouped_metrics
@@ -21,40 +21,32 @@ from portfolio_engine import analyze_portfolio
 from portfolio_utils import generate_portfolio_insight, get_portfolio_sector_weights, resolve_to_ticker
 from portfolio_builder import build_ai_portfolio
 
-# Set page title and layout
 st.set_page_config(page_title="My AI Financial Analyst")
 st.title("My AI Financial Analyst")
 
-# Apply UI styling and sidebar components
 style_ui()
 init_watchlist()
 display_watchlist_sidebar()
 
-# User instructions
 with st.expander("Analyze a Company", expanded=True):
     st.write("Enter a company name or ticker (e.g., Apple or AAPL).")
     st.info("For international stocks, use the full ticker (e.g., CIB for Bancolombia).")
 
-    # Load company/ticker data
     tickers_df = pd.read_csv("tickers.csv")
 
-    # Main search input
     search_query = st.text_input("Search for a company or ticker:")
 
-    # Initialize session state variables
     if "selected_ticker" not in st.session_state:
         st.session_state.selected_ticker = None
     if "run_analysis" not in st.session_state:
         st.session_state.run_analysis = False
 
-    # Match the input to known tickers (fuzzy match by company name)
     def match_ticker(query):
         query = query.strip().lower()
         tickers_df["Security_clean"] = tickers_df["Security"].str.lower()
         matches = tickers_df[tickers_df["Security_clean"].str.contains(query)]
         return matches[["Security", "Symbol"]].values.tolist()
 
-    # Show clickable ticker suggestions based on query
     if search_query:
         suggestions = match_ticker(search_query)
         if suggestions:
@@ -65,7 +57,6 @@ with st.expander("Analyze a Company", expanded=True):
                     st.session_state.run_analysis = True
                     st.rerun()
 
-    # Manual fallback button to analyze the entered text
     if st.button("Analyze", key="analyze_button"):
         if search_query:
             possible_ticker = search_query.strip().upper()
@@ -87,7 +78,6 @@ with st.expander("Analyze a Company", expanded=True):
             except Exception as e:
                 st.warning(f"Could not fetch data for that ticker. Error: {e}")
 
-# Main data analysis block
 if st.session_state.run_analysis and st.session_state.selected_ticker:
     final_ticker = st.session_state.selected_ticker
 
@@ -104,9 +94,13 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
         clean_name = clean_company_name(data.get("shortName", ""))
         st.subheader(f"Company: {clean_name} ({final_ticker})")
 
+        if st.button("Close Analysis"):
+            st.session_state.run_analysis = False
+            st.session_state.selected_ticker = None
+            st.rerun()
+
         add_to_watchlist_button(final_ticker)
         render_grouped_metrics(data, closing_price)
-       
 
         peg = get_peg_ratio(final_ticker)
         if peg is not None:
@@ -119,8 +113,6 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
                 st.warning("This stock may be overvalued relative to growth.")
         else:
             st.write("PEG ratio not available.")
-
-
 
         st.subheader("Benchmark Comparison (Sector ETF)")
         sector = data.get("sector", "Unknown")
@@ -168,8 +160,7 @@ if st.session_state.run_analysis and st.session_state.selected_ticker:
         else:
             st.write("Analyst price targets not available.")
 
-
-        display_stock_price_chart(final_ticker, clean_name) # Display stock price chart
+        display_stock_price_chart(final_ticker, clean_name)
 
         chart_buffer = BytesIO()
         time_range = st.session_state.time_range
